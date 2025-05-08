@@ -1,7 +1,6 @@
-i# .github/workflows/playwright.yml
 name: Playwright Tests
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   test:
