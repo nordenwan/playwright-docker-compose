@@ -1,19 +1,12 @@
 {
-  "name": "playwright-test",
+  "name": "playwright-docker-js",
   "version": "1.0.0",
-  "description": "npm init -y",
-  "main": "index.js",
-  "directories": {
-    "test": "tests"
-  },
   "scripts": {
     "test": "npx playwright test",
     "report": "npx playwright show-report"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.52.0"
   }
 }
+
