@@ -15,5 +15,4 @@ COPY . .
 RUN npx playwright install --with-deps
 
 # Run tests across all browsers in parallel
-CMD ["npx", "playwright", "test", "--project=Chromium", "--project=Firefox", "--project=WebKit", "--workers=3"]
-
+ENTRYPOINT ["/bin/bash", "entrypoint.sh"]
