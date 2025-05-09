@@ -3,7 +3,8 @@ FROM mcr.microsoft.com/playwright:v1.52.0 AS base
 WORKDIR /app
 
 # Copy package manifests first for better Docker layer caching
-COPY package.json package-lock.json playwright.config.js ./
+COPY package.json .
+COPY package-lock.json .
 
 # Install all dependencies (including @playwright/test from package.json)
 RUN npm ci
