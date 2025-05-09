@@ -29,11 +29,13 @@ jobs:
         run: |
           docker compose build  # Explicit build first
           docker compose up --abort-on-container-exit --exit-code-from playwright
+        env:
+          CI: true  # Ensures Playwright runs in CI mode
 
       - name: Upload HTML Report
         if: always()  # Always run even if tests fail
         uses: actions/upload-artifact@v4
         with:
           name: playwright-html-report
-          path: test-results/
+          path: playwright-report/
 

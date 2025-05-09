@@ -6,7 +6,7 @@ module.exports = {
   timeout: 30000,
   retries: 0,
   workers: 3,
-  reporter: [['html', { outputFolder: 'test-results', open: 'never' }]],
+  reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }]],
   projects: [
     {
       name: 'Chromium',
