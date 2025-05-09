@@ -5,5 +5,5 @@ set -e
 npx playwright test --project=Chromium --project=Firefox --project=WebKit --workers=3
 
 # Optionally open report (not useful in headless CI, but good locally)
-npx playwright show-report
+# npx playwright show-report
 
