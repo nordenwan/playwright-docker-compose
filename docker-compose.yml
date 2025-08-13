@@ -1,53 +1,58 @@
-# Docker Compose 文件。顶部的 'version' 字段在新版中已不需要。
+# ===================================================================
+# == Playwright 自动化测试与报告 - 最终版 docker-compose.yml ==
+# ===================================================================
+# ==         已为您配置好 n8n 失败通知内部 Webhook          ==
+# ===================================================================
 
 services:
-  # 服务1：Playwright 浏览器服务
-  # 职责：提供一个带有所有浏览器的稳定环境。
-  # 我们直接使用微软官方镜像，不自己构建，以加快部署速度。
+  # 服务1：Playwright 浏览器服务 (环境提供者)
   playwright:
-    image: mcr.microsoft.com/playwright:v1.45.0-jammy # 锁定版本以保证环境稳定
+    image: mcr.microsoft.com/playwright:v1.45.0-jammy
     container_name: playwright-browsers
-    # --ipc=host 是防止 Chromium 内核浏览器因内存问题崩溃的最佳实践
     ipc: host
-    # --init 确保正确处理和回收僵尸进程
     init: true
+    networks:
+      - dokploy-net
 
-  # 服务2：您的测试执行器服务
-  # 职责：运行您的测试代码。
+  # 服务2：Playwright 测试执行器 (核心任务执行者)
   tests:
-    # 'build: .' 指示 Docker Compose 使用当前目录下的 Dockerfile 来构建这个服务的镜像
     build: .
     container_name: playwright-runner
-    # working_dir 已在 Dockerfile 中通过 WORKDIR /app 定义，这里无需重复
-    # 确保 playwright 服务先于 tests 服务启动
     depends_on:
       - playwright
     environment:
-      # 关键：告诉您的测试脚本去连接哪个浏览器服务
+      # 连接到独立的浏览器服务
       - PLAYWRIGHT_SERVICE_URL=ws://playwright:4444
     volumes:
-      # 将生成的报告写入一个命名的存储卷，以便和其他服务共享
+      # 将测试报告写入共享卷
       - reports-volume:/app/playwright-report
-    # 定义容器启动后要执行的命令
-    command: ["npm", "test"]
+    # 关键：当 npm test 失败时，通过内部网络调用 n8n 的 webhook
+    command: >
+      sh -c "npm test || curl -X POST -H 'Content-Type: application/json' -d '{\"status\":\"failed\", \"message\":\"Playwright tests failed.\", \"report_url\":\"http://bmo.pp.ua:8081\"}' http://n8n:5678/webhook/224d6cc9-6ca4-44cc-b154-ddfa8a2be59a"
+    networks:
+      - dokploy-net
 
-  # 服务3 (新增)：测试报告网页服务器
-  # 职责：将测试报告以网页形式展示出来，方便随时查看。
+  # 服务3：测试报告网页服务器 (结果展示者)
   reports:
-    image: nginx:alpine # 使用一个超轻量的 Nginx 镜像
+    image: nginx:alpine
     container_name: playwright-reports-server
-    # 在 tests 服务运行之后再启动
     depends_on:
       - tests
     ports:
-      # 将服务器的 8080 端口映射到这个容器的 80 端口
-      # 这样您就可以通过 http://<服务器IP>:8080 来访问报告
+      # 对外暴露 8081 端口以访问报告
       - "8081:80"
     volumes:
-      # 从与 tests 服务共享的同一个存储卷中读取报告内容
-      # :ro 表示只读(read-only)，因为 Nginx 只需要展示报告，不需要修改它
+      # 以只读方式挂载共享卷中的报告
       - reports-volume:/usr/share/nginx/html:ro
+    networks:
+      - dokploy-net
 
-# 定义一个命名的存储卷，用于在 'tests' 和 'reports' 服务之间共享数据
+# 定义一个命名的共享存储卷
 volumes:
   reports-volume:
+
+# 定义要连接的外部网络
+networks:
+  dokploy-net:
+    name: dokploy-network # 这个名字必须与您 n8n compose 文件中的网络名完全一致
+    external: true
