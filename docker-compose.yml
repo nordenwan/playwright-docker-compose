@@ -1,9 +1,53 @@
-services:
-  playwright:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - .:/app
-    working_dir: /app
+# Docker Compose 文件。顶部的 'version' 字段在新版中已不需要。
 
+services:
+  # 服务1：Playwright 浏览器服务
+  # 职责：提供一个带有所有浏览器的稳定环境。
+  # 我们直接使用微软官方镜像，不自己构建，以加快部署速度。
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.45.0-jammy # 锁定版本以保证环境稳定
+    container_name: playwright-browsers
+    # --ipc=host 是防止 Chromium 内核浏览器因内存问题崩溃的最佳实践
+    ipc: host
+    # --init 确保正确处理和回收僵尸进程
+    init: true
+
+  # 服务2：您的测试执行器服务
+  # 职责：运行您的测试代码。
+  tests:
+    # 'build: .' 指示 Docker Compose 使用当前目录下的 Dockerfile 来构建这个服务的镜像
+    build: .
+    container_name: playwright-runner
+    # working_dir 已在 Dockerfile 中通过 WORKDIR /app 定义，这里无需重复
+    # 确保 playwright 服务先于 tests 服务启动
+    depends_on:
+      - playwright
+    environment:
+      # 关键：告诉您的测试脚本去连接哪个浏览器服务
+      - PLAYWRIGHT_SERVICE_URL=ws://playwright:4444
+    volumes:
+      # 将生成的报告写入一个命名的存储卷，以便和其他服务共享
+      - reports-volume:/app/playwright-report
+    # 定义容器启动后要执行的命令
+    command: ["npm", "test"]
+
+  # 服务3 (新增)：测试报告网页服务器
+  # 职责：将测试报告以网页形式展示出来，方便随时查看。
+  reports:
+    image: nginx:alpine # 使用一个超轻量的 Nginx 镜像
+    container_name: playwright-reports-server
+    # 在 tests 服务运行之后再启动
+    depends_on:
+      - tests
+    ports:
+      # 将服务器的 8080 端口映射到这个容器的 80 端口
+      # 这样您就可以通过 http://<服务器IP>:8080 来访问报告
+      - "8080:80"
+    volumes:
+      # 从与 tests 服务共享的同一个存储卷中读取报告内容
+      # :ro 表示只读(read-only)，因为 Nginx 只需要展示报告，不需要修改它
+      - reports-volume:/usr/share/nginx/html:ro
+
+# 定义一个命名的存储卷，用于在 'tests' 和 'reports' 服务之间共享数据
+volumes:
+  reports-volume:
